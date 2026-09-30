@@ -18,8 +18,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class EventEntryTest {
 
     WebDriver driver;
-    static final String BASE_URL = "http://localhost:8080";
-
+    // static final String BASE_URL = "http://localhost:8080";
+    static final String BASE_URL =
+        System.getProperty("baseUrl", "http://localhost:8080");
+        
     @BeforeEach
     void setup() {
         ChromeOptions options = new ChromeOptions();

@@ -26,10 +26,52 @@ pipeline {
             steps { sh 'mvn clean compile' }
         }
 
+        // stage('Test') {
+        //     steps { sh 'mvn test' }
+        // }
         stage('Test') {
-            steps { sh 'mvn test' }
-        }
+    steps {
+        sh '''
+            echo "Starting Spring Boot application on port 8081..."
 
+            nohup mvn spring-boot:run \
+                -Dspring-boot.run.arguments="--server.port=8081" \
+                > app.log 2>&1 &
+
+            echo $! > app.pid
+
+            echo "Waiting for application to start..."
+
+            for i in {1..30}; do
+                if curl -s http://localhost:8081/ > /dev/null; then
+                    echo "Application is ready!"
+                    break
+                fi
+
+                sleep 2
+            done
+
+            echo "Running Selenium tests..."
+
+            mvn test -DbaseUrl=http://localhost:8081
+        '''
+    }
+
+    post {
+        always {
+            echo "Stopping Spring Boot application..."
+
+            sh '''
+                if [ -f app.pid ]; then
+                    kill $(cat app.pid) || true
+                fi
+
+                echo "===== Spring Boot Log ====="
+                cat app.log || true
+            '''
+        }
+    }
+}
         stage('Publish Test Report') {
             steps { junit 'target/surefire-reports/*.xml' }
         }
