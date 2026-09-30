@@ -6,10 +6,10 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = "yashlokare/tree-plantation-portal"
-        IMAGE_TAG  = "${env.BUILD_NUMBER}"
-    PATH+DOCKER = "/usr/local/bin"
-    }
+    IMAGE_NAME = "yashlokare/tree-plantation-portal"
+    IMAGE_TAG  = "${env.BUILD_NUMBER}"
+    PATH = "/usr/local/bin:${env.PATH}"
+}
 
     tools {
         maven 'Maven3'
