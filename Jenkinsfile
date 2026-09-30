@@ -6,10 +6,10 @@ pipeline {
     }
 
     environment {
-    IMAGE_NAME = "yashlokare/tree-plantation-portal"
-    IMAGE_TAG  = "${env.BUILD_NUMBER}"
-    PATH = "/usr/local/bin:${env.PATH}"
-}
+        IMAGE_NAME = "yashlokare/tree-plantation-portal"
+        IMAGE_TAG  = "${env.BUILD_NUMBER}"
+        PATH = "/usr/local/bin:${env.PATH}"
+    }
 
     tools {
         maven 'Maven3'
@@ -28,9 +28,9 @@ pipeline {
         }
 
 
-        stage('Test') {
-    steps {
-        sh '''
+    stage('Test') {
+        steps {
+           sh '''
             echo "Starting Spring Boot application on port 8081..."
 
             nohup mvn spring-boot:run \
@@ -71,6 +71,7 @@ pipeline {
         }
     }
 }
+
         stage('Publish Test Report') {
             steps { junit 'target/surefire-reports/*.xml' }
         }
@@ -103,7 +104,7 @@ pipeline {
             steps {
                 sh """
                 docker rm -f tpp-container || true
-                docker run -d --name tpp-container -p 8080:8080 ${IMAGE_NAME}:${IMAGE_TAG}
+                docker run -d --name tpp-container -p 8081:8080 ${IMAGE_NAME}:${IMAGE_TAG}
                 echo "Deployed to ${params.ENV}"
                 """
             }
