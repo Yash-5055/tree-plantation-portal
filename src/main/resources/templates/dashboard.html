@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Dashboard</title>
+    <link rel="stylesheet" th:href="@{/style.css}"/>
+</head>
+<body>
+<div class="navbar">
+    <div class="brand">🌳 Tree Plantation Tracker</div>
+    <nav>
+        <a href="/events/new">Add Event</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/dashboard/summary">Summary</a>
+        <a href="/alerts">Alerts</a>
+    </nav>
+</div>
+<div class="container">
+    <div class="card">
+        <h2>🔍 Plantation Events Dashboard</h2>
+        <form class="search-bar" th:action="@{/dashboard}" method="get">
+            <input type="text" name="species" placeholder="Search by species"/>
+            <input type="text" name="region" placeholder="Search by region"/>
+            <button type="submit" class="btn btn-primary">Search</button>
+        </form>
+
+        <table th:if="${not #lists.isEmpty(events)}">
+            <thead>
+            <tr><th>ID</th><th>Species</th><th>Planter</th><th>Date</th><th>Region</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+            <tr th:each="e : ${events}">
+                <td th:text="${e.id}"></td>
+                <td><a th:href="@{/events/{id}(id=${e.id})}" th:text="${e.species}"></a></td>
+                <td th:text="${e.planterName}"></td>
+                <td th:text="${e.eventDate}"></td>
+                <td th:text="${e.region}"></td>
+                <td><span class="badge" th:classappend="${e.status}" th:text="${e.status}"></span></td>
+            </tr>
+            </tbody>
+        </table>
+        <div class="empty-state" th:if="${#lists.isEmpty(events)}">No records found.</div>
+    </div>
+</div>
+</body>
+</html>

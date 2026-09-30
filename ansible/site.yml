@@ -1,0 +1,77 @@
+---
+- name: Configure and deploy Tree Plantation Portal
+  hosts: webservers
+  become: true
+
+  vars:
+    app_user: deploy
+    app_dir: /opt/tpp
+    app_version: "{{ app_version | default('latest') }}"
+
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - openjdk-17-jdk
+          - maven
+          - git
+          - docker.io
+          - nginx
+        state: present
+        update_cache: true
+
+    - name: Create service user
+      user:
+        name: "{{ app_user }}"
+        shell: /bin/bash
+        create_home: true
+
+    - name: Create app directory
+      file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Ensure Docker service is running
+      service:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Deploy Nginx reverse proxy config
+      template:
+        src: templates/nginx-tpp.conf.j2
+        dest: /etc/nginx/sites-available/tpp
+      notify: restart nginx
+
+    - name: Enable Nginx site
+      file:
+        src: /etc/nginx/sites-available/tpp
+        dest: /etc/nginx/sites-enabled/tpp
+        state: link
+      notify: restart nginx
+
+    - name: Pull and run the application container
+      docker_container:
+        name: tpp-container
+        image: "yourdockerhubuser/tree-plantation-portal:{{ app_version }}"
+        state: started
+        restart_policy: always
+        ports:
+          - "8080:8080"
+
+    - name: Wait for application health check
+      uri:
+        url: "http://localhost:8080/actuator/health"
+        status_code: 200
+      register: health
+      retries: 5
+      delay: 10
+      until: health.status == 200
+
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted

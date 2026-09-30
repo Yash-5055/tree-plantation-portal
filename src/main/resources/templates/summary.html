@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Summary</title>
+    <link rel="stylesheet" th:href="@{/style.css}"/>
+</head>
+<body>
+<div class="navbar">
+    <div class="brand">🌳 Tree Plantation Tracker</div>
+    <nav>
+        <a href="/events/new">Add Event</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/dashboard/summary">Summary</a>
+        <a href="/alerts">Alerts</a>
+    </nav>
+</div>
+<div class="container">
+    <div class="card">
+        <h2>📊 Summary Indicators</h2>
+        <div class="kpi-grid">
+            <div class="kpi-card kpi-total">
+                <h1 th:text="${total}">0</h1><p>Total Planted</p>
+            </div>
+            <a class="kpi-card kpi-alive" th:href="@{/dashboard/status/ALIVE}">
+                <h1 th:text="${alive}">0</h1><p>Alive</p>
+            </a>
+            <a class="kpi-card kpi-unhealthy" th:href="@{/dashboard/status/UNHEALTHY}">
+                <h1 th:text="${unhealthy}">0</h1><p>Unhealthy</p>
+            </a>
+            <a class="kpi-card kpi-dead" th:href="@{/dashboard/status/DEAD}">
+                <h1 th:text="${dead}">0</h1><p>Dead</p>
+            </a>
+        </div>
+        <div class="rate-banner">Survival Rate: <b th:text="${survivalRate} + '%'">0%</b></div>
+    </div>
+</div>
+</body>
+</html>

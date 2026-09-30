@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>Event Detail</title>
+    <link rel="stylesheet" th:href="@{/style.css}"/>
+</head>
+<body>
+<div class="navbar">
+    <div class="brand">🌳 Tree Plantation Tracker</div>
+    <nav>
+        <a href="/events/new">Add Event</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/dashboard/summary">Summary</a>
+        <a href="/alerts">Alerts</a>
+    </nav>
+</div>
+<div class="container">
+    <div class="card">
+        <h2>Event Detail</h2>
+        <p><b>Species:</b> <span th:text="${event.species}"></span></p>
+        <p><b>Planter:</b> <span th:text="${event.planterName}"></span></p>
+        <p><b>Date:</b> <span th:text="${event.eventDate}"></span></p>
+        <p><b>Region:</b> <span th:text="${event.region}"></span></p>
+        <p><b>Coordinates:</b> <span th:text="${event.latitude} + ', ' + ${event.longitude}"></span></p>
+        <p><b>Status:</b> <span class="badge" th:classappend="${event.status}" th:text="${event.status}"></span></p>
+        <p style="margin-top:20px;"><a href="/dashboard" class="btn btn-secondary">Back to Dashboard</a></p>
+    </div>
+</div>
+</body>
+</html>

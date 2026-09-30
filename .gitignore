@@ -1,0 +1,10 @@
+target/
+*.class
+.idea/
+*.iml
+*.iws
+.vscode/
+.env
+uploads/
+*.log
+.DS_Store

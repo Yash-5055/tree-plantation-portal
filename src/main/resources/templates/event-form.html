@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>New Plantation Event</title>
+    <link rel="stylesheet" th:href="@{/style.css}"/>
+</head>
+<body>
+<div class="navbar">
+    <div class="brand">🌳 Tree Plantation Tracker</div>
+    <nav>
+        <a href="/events/new">Add Event</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/dashboard/summary">Summary</a>
+        <a href="/alerts">Alerts</a>
+    </nav>
+</div>
+
+<div class="container">
+    <div class="card">
+        <h2>🌱 Log a Plantation Event</h2>
+
+        <form th:action="@{/events}" th:object="${event}" method="post" id="eventForm">
+            <div class="field">
+                <label>Species</label>
+                <input type="text" id="species" th:field="*{species}" required/>
+                <span class="error" th:if="${#fields.hasErrors('species')}" th:errors="*{species}"></span>
+            </div>
+
+            <div class="field">
+                <label>Planter Name</label>
+                <input type="text" id="planterName" th:field="*{planterName}" required/>
+                <span class="error" th:if="${#fields.hasErrors('planterName')}" th:errors="*{planterName}"></span>
+            </div>
+
+            <div class="field">
+                <label>Date</label>
+                <input type="date" id="eventDate" th:field="*{eventDate}" required/>
+                <span class="error" th:if="${#fields.hasErrors('eventDate')}" th:errors="*{eventDate}"></span>
+            </div>
+
+            <div class="field">
+                <label>Region</label>
+                <input type="text" id="region" th:field="*{region}" placeholder="e.g. Pune Division"/>
+            </div>
+
+            <!-- GPS location capture -->
+            <div class="field">
+                <label>Location</label>
+                <button type="button" class="btn btn-secondary" id="gpsBtn" onclick="captureLocation()">
+                    📍 Use My Current Location
+                </button>
+                <p class="gps-status" id="gpsStatus">Tap the button to auto-fill GPS coordinates.</p>
+            </div>
+
+            <div class="gps-row">
+                <div class="field">
+                    <label>Latitude</label>
+                    <input type="number" step="any" id="latitude" th:field="*{latitude}" readonly/>
+                </div>
+                <div class="field">
+                    <label>Longitude</label>
+                    <input type="number" step="any" id="longitude" th:field="*{longitude}" readonly/>
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Status</label>
+                <select id="status" th:field="*{status}">
+                    <option value="ALIVE">Alive</option>
+                    <option value="UNHEALTHY">Unhealthy</option>
+                    <option value="DEAD">Dead</option>
+                </select>
+            </div>
+
+            <button type="submit" id="submitBtn" class="btn btn-primary btn-block">Submit Event</button>
+        </form>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    function captureLocation() {
+        const statusEl = document.getElementById('gpsStatus');
+        const btn = document.getElementById('gpsBtn');
+
+        if (!navigator.geolocation) {
+            statusEl.textContent = 'Geolocation is not supported on this device/browser.';
+            statusEl.className = 'gps-status err';
+            return;
+        }
+
+        btn.disabled = true;
+        statusEl.textContent = 'Fetching your location…';
+        statusEl.className = 'gps-status';
+
+        navigator.geolocation.getCurrentPosition(
+            function (position) {
+                document.getElementById('latitude').value = position.coords.latitude.toFixed(6);
+                document.getElementById('longitude').value = position.coords.longitude.toFixed(6);
+                statusEl.textContent = '✅ Location captured (accuracy: ' + Math.round(position.coords.accuracy) + 'm)';
+                statusEl.className = 'gps-status ok';
+                btn.disabled = false;
+            },
+            function (error) {
+                let msg = 'Could not get location.';
+                if (error.code === error.PERMISSION_DENIED) msg = 'Location permission denied. Please allow access.';
+                else if (error.code === error.TIMEOUT) msg = 'Location request timed out. Try again.';
+                statusEl.textContent = '❌ ' + msg;
+                statusEl.className = 'gps-status err';
+                btn.disabled = false;
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    }
+</script>
+</body>
+</html>
