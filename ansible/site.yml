@@ -12,7 +12,7 @@
     - name: Install required packages
       apt:
         name:
-          - openjdk-17-jdk
+          - openjdk-21-jdk
           - maven
           - git
           - docker.io
