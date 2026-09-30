@@ -4,7 +4,10 @@ import org.junit.jupiter.api.*;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 
+import java.time.Duration;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -21,7 +24,7 @@ public class EventEntryTest {
     // static final String BASE_URL = "http://localhost:8080";
     static final String BASE_URL =
         System.getProperty("baseUrl", "http://localhost:8080");
-        
+
     @BeforeEach
     void setup() {
         ChromeOptions options = new ChromeOptions();
@@ -39,8 +42,13 @@ public class EventEntryTest {
             driver.findElement(By.id("eventDate")).sendKeys("09/01/2026");
             driver.findElement(By.id("submitBtn")).click();
 
-            WebElement heading = driver.findElement(By.tagName("h2"));
-            assertTrue(heading.getText().toLowerCase().contains("success"));
+WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+
+WebElement heading = wait.until(
+    ExpectedConditions.visibilityOfElementLocated(By.tagName("h2"))
+);
+
+assertTrue(heading.getText().toLowerCase().contains("success"));
         } catch (AssertionError | Exception e) {
             captureScreenshot("testSubmitValidEvent_failure");
             throw e;
