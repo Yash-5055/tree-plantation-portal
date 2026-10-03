@@ -1,0 +1,31 @@
+# =====================================================================
+#  Tree Plantation Portal – application.properties (Jinja2 template)
+#  Managed by Ansible — DO NOT EDIT MANUALLY
+# =====================================================================
+
+{% if db_engine == "postgresql" %}
+# ── PostgreSQL ──────────────────────────────────────────────────────
+spring.datasource.url=jdbc:postgresql://{{ pg_host }}:{{ pg_port }}/{{ pg_db }}
+spring.datasource.driver-class-name=org.postgresql.Driver
+spring.datasource.username={{ pg_user }}
+spring.datasource.password={{ pg_password }}
+spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect
+
+{% else %}
+# ── H2 in-memory (default) ──────────────────────────────────────────
+spring.datasource.url=jdbc:h2:mem:tppdb;DB_CLOSE_DELAY=-1
+spring.datasource.driver-class-name=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=
+spring.h2.console.enabled=false
+{% endif %}
+
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=false
+
+# ── Server ──────────────────────────────────────────────────────────
+server.port={{ app_port }}
+
+# ── Actuator ────────────────────────────────────────────────────────
+management.endpoints.web.exposure.include=health,info
+management.endpoint.health.show-details=always

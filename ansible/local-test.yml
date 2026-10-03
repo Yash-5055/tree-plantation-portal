@@ -1,0 +1,94 @@
+---
+# ============================================================
+#  Tree Plantation Portal – LOCAL TEST Playbook (macOS)
+#  File: ansible/local-test.yml
+#
+#  Runs against localhost (your Mac). Skips Linux-only tasks
+#  (apt, ufw, systemd, nginx) and tests the Docker + health-
+#  check steps that are valid on macOS.
+#
+#  Run: ansible-playbook local-test.yml
+# ============================================================
+
+- name: "TPP LOCAL | Deploy & verify TPP container on localhost"
+  hosts: localhost
+  connection: local
+  become: false
+  gather_facts: true
+  vars_files:
+    - vars/main.yml
+  vars:
+    host_port: 8081          # must match docker run in Jenkinsfile
+
+  tasks:
+
+    # ── 1. Verify Docker is running ──────────────────────────
+    - name: "DOCKER | Check Docker daemon is reachable"
+      ansible.builtin.command: docker info
+      register: docker_info
+      changed_when: false
+      failed_when: docker_info.rc != 0
+
+    - name: "DOCKER | Print Docker version"
+      ansible.builtin.debug:
+        msg: "{{ docker_info.stdout_lines | select('match', '.*Server Version.*') | list }}"
+
+    # ── 2. Pull image ─────────────────────────────────────────
+    - name: "APP | Pull image {{ docker_image }}:{{ app_version }}"
+      community.docker.docker_image:
+        name: "{{ docker_image }}"
+        tag: "{{ app_version }}"
+        source: pull
+        force_source: true
+
+    # ── 3. Remove old container (idempotent) ─────────────────
+    - name: "APP | Remove existing container if present"
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        state: absent
+        force_kill: true
+
+    # ── 4. Start fresh container ──────────────────────────────
+    - name: "APP | Start {{ container_name }} on port {{ host_port }}"
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        image: "{{ docker_image }}:{{ app_version }}"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "{{ host_port }}:{{ app_port }}"
+        env:
+          JAVA_OPTS: "-Xms256m -Xmx512m"
+
+    # ── 5. Wait for app to be ready ───────────────────────────
+    - name: "HEALTH | Wait for Spring Boot to start (up to 120s)"
+      ansible.builtin.uri:
+        url: "http://localhost:{{ host_port }}/actuator/health"
+        status_code: 200
+        return_content: true
+      register: health_result
+      retries: 10
+      delay: 12
+      until: health_result.status == 200
+
+    # ── 6. Print result ───────────────────────────────────────
+    - name: "HEALTH | Application health status"
+      ansible.builtin.debug:
+        msg:
+          - "========================================"
+          - " TPP LOCAL TEST — PASSED"
+          - "  Container : {{ container_name }}"
+          - "  Image     : {{ docker_image }}:{{ app_version }}"
+          - "  URL       : http://localhost:{{ host_port }}/"
+          - "  Health    : {{ health_result.json }}"
+          - "========================================"
+
+    # ── 7. Show container state ───────────────────────────────
+    - name: "APP | Inspect running container"
+      ansible.builtin.command: docker ps --filter name={{ container_name }} --format "table {{ '{{' }}.Names{{ '}}' }}\t{{ '{{' }}.Status{{ '}}' }}\t{{ '{{' }}.Ports{{ '}}' }}"
+      register: ps_out
+      changed_when: false
+
+    - name: "APP | Container info"
+      ansible.builtin.debug:
+        msg: "{{ ps_out.stdout_lines }}"

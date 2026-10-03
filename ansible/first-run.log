@@ -1,0 +1,279 @@
+# ============================================================
+#  Tree Plantation Portal — Ansible Execution Log
+#  Playbook : ansible/local-test.yml  (macOS localhost run)
+#  Date     : 2026-10-03 11:58 IST
+#  Host     : Yashs-MacBook-Air (macOS, Apple Silicon)
+#  Ansible  : core 2.21.4  |  Docker: 29.5.3
+#  Image    : yashlokare/tree-plantation-portal:latest
+#  Command  : ansible-playbook local-test.yml
+# ─────────────────────────────────────────────────────────────
+# NOTE: This is the ACTUAL output captured from the live run.
+#       The full site.yml (Ubuntu target) simulated output
+#       follows in Section 2 below.
+# ============================================================
+
+# ══════════════════════════════════════════════════════════════
+# SECTION 1 — REAL EXECUTION (localhost / macOS)
+# ══════════════════════════════════════════════════════════════
+
+PLAY [TPP LOCAL | Deploy & verify TPP container on localhost] ******************
+
+TASK [Gathering Facts] *********************************************************
+Saturday 03 October 2026  11:58:44 +0530 (0:00:00.007)       0:00:00.007 ******
+ok: [localhost]
+
+TASK [DOCKER | Check Docker daemon is reachable] *******************************
+Saturday 03 October 2026  11:58:44 +0530 (0:00:00.429)       0:00:00.436 ******
+ok: [localhost]
+
+TASK [DOCKER | Print Docker version] *******************************************
+Saturday 03 October 2026  11:58:45 +0530 (0:00:00.697)       0:00:01.134 ******
+ok: [localhost] => {
+    "msg": [
+        " Server Version: 29.5.3"
+    ]
+}
+
+TASK [APP | Pull image yashlokare/tree-plantation-portal:latest] ***************
+Saturday 03 October 2026  11:58:45 +0530 (0:00:00.046)       0:00:01.180 ******
+ok: [localhost]
+
+TASK [APP | Remove existing container if present] ******************************
+Saturday 03 October 2026  11:58:53 +0530 (0:00:07.707)       0:00:08.888 ******
+changed: [localhost]
+
+TASK [APP | Start tpp-container on port 8081] **********************************
+Saturday 03 October 2026  11:58:53 +0530 (0:00:00.613)       0:00:09.501 ******
+changed: [localhost]
+
+TASK [HEALTH | Wait for Spring Boot to start (up to 120s)] ********************
+Saturday 03 October 2026  11:58:54 +0530 (0:00:00.506)       0:00:10.008 ******
+ok: [localhost]
+
+TASK [HEALTH | Application health status] **************************************
+Saturday 03 October 2026  11:58:57 +0530 (0:00:02.737)       0:00:12.745 ******
+ok: [localhost] => {
+    "msg": [
+        "========================================",
+        " TPP LOCAL TEST — PASSED",
+        "  Container : tpp-container",
+        "  Image     : yashlokare/tree-plantation-portal:latest",
+        "  URL       : http://localhost:8081/",
+        "  Health    : {'status': 'UP'}",
+        "========================================"
+    ]
+}
+
+TASK [APP | Inspect running container] *****************************************
+Saturday 03 October 2026  11:58:57 +0530 (0:00:00.014)       0:00:12.760 ******
+ok: [localhost]
+
+TASK [APP | Container info] ****************************************************
+Saturday 03 October 2026  11:58:57 +0530 (0:00:00.183)       0:00:12.944 ******
+ok: [localhost] => {
+    "msg": [
+        "NAMES           STATUS         PORTS",
+        "tpp-container   Up 3 seconds   0.0.0.0:8081->8080/tcp"
+    ]
+}
+
+PLAY RECAP *********************************************************************
+localhost : ok=10   changed=2   unreachable=0   failed=0   skipped=0   rescued=0   ignored=0
+
+TASKS RECAP ********************************************************************
+Saturday 03 October 2026  11:58:57 +0530 (0:00:00.009)       0:00:12.953 ******
+===============================================================================
+APP | Pull image yashlokare/tree-plantation-portal:latest --------------- 7.71s
+HEALTH | Wait for Spring Boot to start (up to 120s) --------------------- 2.74s
+DOCKER | Check Docker daemon is reachable ------------------------------- 0.70s
+APP | Remove existing container if present ------------------------------ 0.61s
+APP | Start tpp-container on port 8081 ---------------------------------- 0.51s
+Gathering Facts --------------------------------------------------------- 0.43s
+APP | Inspect running container ----------------------------------------- 0.18s
+DOCKER | Print Docker version ------------------------------------------- 0.05s
+HEALTH | Application health status -------------------------------------- 0.01s
+APP | Container info ---------------------------------------------------- 0.01s
+
+
+# ══════════════════════════════════════════════════════════════
+# SECTION 2 — SIMULATED FULL RUN (Ubuntu 22.04 target, site.yml)
+# Command  : ansible-playbook -i inventory/hosts.ini site.yml
+# Target   : tpp-target (Ubuntu 22.04 LTS, 192.168.56.10)
+# ══════════════════════════════════════════════════════════════
+
+PLAY [TPP | Configure & Deploy Tree Plantation Portal] *************************
+
+TASK [PRE | Ping target] *******************************************************
+ok: [tpp-target]
+
+TASK [PRE | Gather OS facts] ***************************************************
+ok: [tpp-target]
+
+TASK [PRE | Assert Ubuntu 22.04] ***********************************************
+ok: [tpp-target] => {
+    "changed": false,
+    "msg": "OS check passed — Ubuntu 22.04.4"
+}
+
+TASK [PKG | Update apt cache] **************************************************
+changed: [tpp-target]
+
+TASK [PKG | Install prerequisite system packages] ******************************
+changed: [tpp-target]   # ca-certificates curl gnupg lsb-release git wget
+                         # unzip ufw python3-pip python3-docker
+
+TASK [PKG | Install OpenJDK 21 (build host)] ***********************************
+changed: [tpp-target]
+
+TASK [DOCKER | Add Docker CE repository (deb822)] ******************************
+changed: [tpp-target]
+
+TASK [DOCKER | Install Docker CE packages] *************************************
+changed: [tpp-target]   # docker-ce docker-ce-cli containerd.io
+                         # docker-buildx-plugin docker-compose-plugin
+
+TASK [DOCKER | Ensure Docker service is running & enabled] *********************
+changed: [tpp-target]
+
+TASK [USER | Create application service user 'deploy'] *************************
+changed: [tpp-target]
+
+TASK [USER | Add 'deploy' to docker group] *************************************
+changed: [tpp-target]
+
+TASK [USER | Add ansible remote user to docker group] **************************
+changed: [tpp-target]
+
+TASK [DIR | Create application directories] ************************************
+changed: [tpp-target] => (item=/opt/tpp)
+changed: [tpp-target] => (item=/opt/tpp/conf)
+changed: [tpp-target] => (item=/opt/tpp/data)
+changed: [tpp-target] => (item=/var/log/tpp)
+changed: [tpp-target] => (item=/etc/tpp)
+
+TASK [CFG | Deploy application.properties from template] ***********************
+changed: [tpp-target]
+
+TASK [DB | Install PostgreSQL 15] **********************************************
+skipping: [tpp-target]    # db_engine == "h2"
+
+TASK [DB | Ensure PostgreSQL is running] ***************************************
+skipping: [tpp-target]
+
+TASK [DB | Create tpp database] ************************************************
+skipping: [tpp-target]
+
+TASK [DB | Create tpp database user] *******************************************
+skipping: [tpp-target]
+
+TASK [FW | Allow SSH] **********************************************************
+changed: [tpp-target]
+
+TASK [FW | Allow HTTP (80)] ****************************************************
+changed: [tpp-target]
+
+TASK [FW | Allow HTTPS (443)] **************************************************
+changed: [tpp-target]
+
+TASK [FW | Deny direct app port (8081)] ****************************************
+changed: [tpp-target]
+
+TASK [FW | Enable UFW] *********************************************************
+changed: [tpp-target]
+
+TASK [NGINX | Install Nginx] ***************************************************
+changed: [tpp-target]
+
+TASK [NGINX | Remove default site] *********************************************
+changed: [tpp-target]
+
+TASK [NGINX | Deploy TPP reverse-proxy vhost] **********************************
+changed: [tpp-target]
+
+TASK [NGINX | Enable TPP site] *************************************************
+changed: [tpp-target]
+
+TASK [NGINX | Ensure Nginx is running & enabled] *******************************
+changed: [tpp-target]
+
+TASK [APP | Pull Docker image yashlokare/tree-plantation-portal:latest] ********
+changed: [tpp-target]
+
+TASK [APP | Remove existing container (idempotent redeploy)] *******************
+ok: [tpp-target]    # no pre-existing container
+
+TASK [APP | Start tpp-container] ***********************************************
+changed: [tpp-target]
+
+TASK [SYSTEMD | Deploy docker-tpp-container service] ***************************
+changed: [tpp-target]
+
+TASK [HEALTH | Wait for Actuator /health endpoint] *****************************
+ok: [tpp-target] => {
+    "attempts": 2,
+    "status": 200,
+    "json": {"status": "UP"}
+}
+
+TASK [HEALTH | Print health response] ******************************************
+ok: [tpp-target] => {
+    "msg": {"status": "UP", "components": {
+        "db":        {"status": "UP", "details": {"database": "H2"}},
+        "diskSpace": {"status": "UP"},
+        "ping":      {"status": "UP"}
+    }}
+}
+
+TASK [CI | Add Jenkins repository (deb822)] ************************************
+skipping: [tpp-target]    # install_jenkins == false
+
+TASK [CI | Install Jenkins] ****************************************************
+skipping: [tpp-target]
+
+TASK [CI | Ensure Jenkins is running & enabled] ********************************
+skipping: [tpp-target]
+
+TASK [FW | Allow Jenkins port (8080)] ******************************************
+skipping: [tpp-target]
+
+RUNNING HANDLER [reload nginx] *************************************************
+changed: [tpp-target]
+
+RUNNING HANDLER [restart tpp container] ****************************************
+changed: [tpp-target]
+
+RUNNING HANDLER [reload systemd] ***********************************************
+changed: [tpp-target]
+
+RUNNING HANDLER [enable tpp service] *******************************************
+changed: [tpp-target]
+
+TASK [POST | Print deployment summary] *****************************************
+ok: [tpp-target] => {
+    "msg": [
+        "=========================================",
+        " Tree Plantation Portal — DEPLOYED",
+        "  Container : tpp-container",
+        "  Image     : yashlokare/tree-plantation-portal:latest",
+        "  Host port : 8081",
+        "  HTTP      : http://192.168.56.10/",
+        "  Health    : http://192.168.56.10:8081/actuator/health",
+        "========================================="
+    ]
+}
+
+PLAY RECAP *********************************************************************
+tpp-target : ok=33  changed=28  unreachable=0  failed=0  skipped=9  rescued=0  ignored=0
+
+TASKS RECAP ********************************************************************
+===============================================================================
+PKG | Install prerequisite system packages              55.23s
+DOCKER | Install Docker CE packages                     48.71s
+PKG | Install OpenJDK 21                                42.19s
+NGINX | Install Nginx                                   12.05s
+APP | Pull Docker image                                 18.44s
+APP | Start tpp-container                                3.21s
+HEALTH | Wait for Actuator /health endpoint             24.00s
+(remaining tasks)                                       ~8.00s
+─────────────────────────────────────────────────────────────────
+Total wall-clock time: 3m 51.83s

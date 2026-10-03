@@ -1,0 +1,12 @@
+---
+# ============================================================
+#  ansible-galaxy collections required by site.yml
+#  Install: ansible-galaxy collection install -r requirements.yml
+# ============================================================
+collections:
+  - name: community.docker
+    version: ">=3.4.0"
+  - name: community.general
+    version: ">=7.0.0"
+  - name: community.postgresql
+    version: ">=3.0.0"

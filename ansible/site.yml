@@ -1,77 +1,358 @@
 ---
-- name: Configure and deploy Tree Plantation Portal
+# ============================================================
+#  Tree Plantation Portal – Master Playbook
+#  File: ansible/site.yml
+#  Target OS : Ubuntu 22.04 LTS
+#  Run       : ansible-playbook -i inventory/hosts.ini site.yml
+# ============================================================
+
+- name: "TPP | Configure & Deploy Tree Plantation Portal"
   hosts: webservers
   become: true
+  vars_files:
+    - vars/main.yml
 
-  vars:
-    app_user: deploy
-    app_dir: /opt/tpp
-    app_version: "{{ app_version | default('latest') }}"
+  pre_tasks:
+    # ── 0. Verify connectivity ─────────────────────────────
+    - name: "PRE | Ping target"
+      ansible.builtin.ping:
 
+    - name: "PRE | Gather OS facts"
+      ansible.builtin.setup:
+        filter: "ansible_distribution*"
+
+    - name: "PRE | Assert Ubuntu 22.04"
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "Ubuntu"
+          - ansible_distribution_major_version == "22"
+        fail_msg: "This playbook supports Ubuntu 22.04 only."
+        success_msg: "OS check passed — Ubuntu {{ ansible_distribution_version }}"
+
+  # ─────────────────────────────────────────────────────────
   tasks:
-    - name: Install required packages
-      apt:
+
+    # ── 1. System packages ───────────────────────────────────
+    - name: "PKG | Update apt cache"
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: "PKG | Install prerequisite system packages"
+      ansible.builtin.apt:
+        name: "{{ required_packages }}"
+        state: present
+
+    - name: "PKG | Install OpenJDK 21 (build host)"
+      ansible.builtin.apt:
+        name: "{{ java_package }}"
+        state: present
+
+    # ── 2. Docker CE ─────────────────────────────────────────
+    - name: "DOCKER | Add Docker CE repository (deb822)"
+      ansible.builtin.deb822_repository:
+        name: docker
+        types: deb
+        uris: https://download.docker.com/linux/ubuntu
+        suites: jammy
+        components: stable
+        architectures: amd64
+        signed_by: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+        enabled: true
+
+    - name: "DOCKER | Install Docker CE packages"
+      ansible.builtin.apt:
         name:
-          - openjdk-21-jdk
-          - maven
-          - git
-          - docker.io
-          - nginx
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
         state: present
         update_cache: true
 
-    - name: Create service user
-      user:
-        name: "{{ app_user }}"
-        shell: /bin/bash
-        create_home: true
-
-    - name: Create app directory
-      file:
-        path: "{{ app_dir }}"
-        state: directory
-        owner: "{{ app_user }}"
-        mode: '0755'
-
-    - name: Ensure Docker service is running
-      service:
+    - name: "DOCKER | Ensure Docker service is running & enabled"
+      ansible.builtin.service:
         name: docker
         state: started
         enabled: true
 
-    - name: Deploy Nginx reverse proxy config
-      template:
+    # ── 3. OS users & groups ─────────────────────────────────
+    - name: "USER | Create application service user '{{ app_user }}'"
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        group: "{{ app_group | default(app_user) }}"
+        shell: /bin/bash
+        create_home: true
+        system: false
+        state: present
+
+    - name: "USER | Add '{{ app_user }}' to docker group"
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        groups: docker
+        append: true
+
+    - name: "USER | Add ansible remote user to docker group"
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+
+    # ── 4. Directory structure ───────────────────────────────
+    - name: "DIR | Create application directories"
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ item.owner | default(app_user) }}"
+        group: "{{ item.group | default(app_user) }}"
+        mode: "{{ item.mode | default('0755') }}"
+      loop:
+        - { path: "{{ app_dir }}" }
+        - { path: "{{ app_dir }}/conf" }
+        - { path: "{{ app_dir }}/data" }
+        - { path: "{{ app_log_dir }}", mode: '0750' }
+        - { path: "{{ app_conf_dir }}", owner: root, group: root, mode: '0755' }
+
+    # ── 5. Application configuration file ───────────────────
+    - name: "CFG | Deploy application.properties from template"
+      ansible.builtin.template:
+        src: templates/application.properties.j2
+        dest: "{{ app_conf_dir }}/application.properties"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0640"
+      notify: restart tpp container
+
+    # ── 6. PostgreSQL (optional) ─────────────────────────────
+    - name: "DB | Install PostgreSQL 15"
+      ansible.builtin.apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+          - libpq-dev
+          - python3-psycopg2
+        state: present
+      when: db_engine == "postgresql"
+
+    - name: "DB | Ensure PostgreSQL is running"
+      ansible.builtin.service:
+        name: postgresql
+        state: started
+        enabled: true
+      when: db_engine == "postgresql"
+
+    - name: "DB | Create tpp database"
+      community.postgresql.postgresql_db:
+        name: "{{ pg_db }}"
+        state: present
+      become_user: postgres
+      when: db_engine == "postgresql"
+
+    - name: "DB | Create tpp database user"
+      community.postgresql.postgresql_user:
+        db: "{{ pg_db }}"
+        name: "{{ pg_user }}"
+        password: "{{ pg_password }}"
+        priv: "ALL"
+        state: present
+      become_user: postgres
+      when: db_engine == "postgresql"
+
+    # ── 7. Firewall (UFW) ────────────────────────────────────
+    - name: "FW | Allow SSH"
+      community.general.ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: "FW | Allow HTTP (80)"
+      community.general.ufw:
+        rule: allow
+        port: "{{ nginx_http_port | string }}"
+        proto: tcp
+
+    - name: "FW | Allow HTTPS (443)"
+      community.general.ufw:
+        rule: allow
+        port: "{{ nginx_https_port | string }}"
+        proto: tcp
+
+    - name: "FW | Deny direct app port from external ({{ host_port }})"
+      community.general.ufw:
+        rule: deny
+        port: "{{ host_port | string }}"
+        proto: tcp
+
+    - name: "FW | Enable UFW"
+      community.general.ufw:
+        state: enabled
+        policy: deny
+
+    # ── 8. Nginx ─────────────────────────────────────────────
+    - name: "NGINX | Install Nginx"
+      ansible.builtin.apt:
+        name: nginx
+        state: present
+
+    - name: "NGINX | Remove default site"
+      ansible.builtin.file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      notify: reload nginx
+
+    - name: "NGINX | Deploy TPP reverse-proxy vhost"
+      ansible.builtin.template:
         src: templates/nginx-tpp.conf.j2
         dest: /etc/nginx/sites-available/tpp
-      notify: restart nginx
+        owner: root
+        group: root
+        mode: "0644"
+      notify: reload nginx
 
-    - name: Enable Nginx site
-      file:
+    - name: "NGINX | Enable TPP site"
+      ansible.builtin.file:
         src: /etc/nginx/sites-available/tpp
         dest: /etc/nginx/sites-enabled/tpp
         state: link
-      notify: restart nginx
+      notify: reload nginx
 
-    - name: Pull and run the application container
-      docker_container:
-        name: tpp-container
-        image: "yourdockerhubuser/tree-plantation-portal:{{ app_version }}"
+    - name: "NGINX | Ensure Nginx is running & enabled"
+      ansible.builtin.service:
+        name: nginx
+        state: started
+        enabled: true
+
+    # ── 9. Pull Docker image ──────────────────────────────────
+    - name: "APP | Pull Docker image {{ docker_image }}:{{ app_version }}"
+      community.docker.docker_image:
+        name: "{{ docker_image }}"
+        tag: "{{ app_version }}"
+        source: pull
+        force_source: true
+
+    # ── 10. Deploy application container ─────────────────────
+    - name: "APP | Remove existing container (idempotent redeploy)"
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        state: absent
+        force_kill: true
+
+    - name: "APP | Start tpp-container"
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        image: "{{ docker_image }}:{{ app_version }}"
         state: started
         restart_policy: always
         ports:
-          - "8080:8080"
+          - "{{ host_port }}:{{ app_port }}"
+        volumes:
+          - "{{ app_log_dir }}:/usr/local/tomcat/logs"
+          - "{{ app_conf_dir }}/application.properties:\
+             /usr/local/tomcat/webapps/ROOT/WEB-INF/classes/application.properties:ro"
+        env:
+          JAVA_OPTS: "-Xms256m -Xmx512m -Djava.security.egd=file:/dev/./urandom"
+        log_driver: "json-file"
+        log_options:
+          max-size: "50m"
+          max-file: "5"
+      notify: restart tpp container
 
-    - name: Wait for application health check
-      uri:
-        url: "http://localhost:8080/actuator/health"
+    # ── 11. Systemd drop-in (auto-restart on boot) ───────────
+    - name: "SYSTEMD | Deploy docker-tpp-container service"
+      ansible.builtin.template:
+        src: templates/docker-tpp.service.j2
+        dest: /etc/systemd/system/docker-tpp-container.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - reload systemd
+        - enable tpp service
+
+    # ── 12. Health-check ──────────────────────────────────────
+    - name: "HEALTH | Wait for Actuator /health endpoint"
+      ansible.builtin.uri:
+        url: "http://localhost:{{ host_port }}/actuator/health"
         status_code: 200
-      register: health
-      retries: 5
-      delay: 10
-      until: health.status == 200
+        return_content: true
+      register: health_result
+      retries: 10
+      delay: 12
+      until: health_result.status == 200
 
+    - name: "HEALTH | Print health response"
+      ansible.builtin.debug:
+        msg: "App health → {{ health_result.json }}"
+
+    # ── 13. Jenkins (optional) ───────────────────────────────
+    - name: "CI | Add Jenkins repository (deb822)"
+      ansible.builtin.deb822_repository:
+        name: jenkins
+        types: deb
+        uris: https://pkg.jenkins.io/debian-stable
+        suites: binary/
+        components: ""
+        signed_by: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+        state: present
+        enabled: true
+      when: install_jenkins | bool
+
+    - name: "CI | Install Jenkins"
+      ansible.builtin.apt:
+        name: jenkins
+        state: present
+        update_cache: true
+      when: install_jenkins | bool
+
+    - name: "CI | Ensure Jenkins is running & enabled"
+      ansible.builtin.service:
+        name: jenkins
+        state: started
+        enabled: true
+      when: install_jenkins | bool
+
+    - name: "FW | Allow Jenkins port ({{ jenkins_port }})"
+      community.general.ufw:
+        rule: allow
+        port: "{{ jenkins_port | string }}"
+        proto: tcp
+      when: install_jenkins | bool
+
+  # ─────────────────────────────────────────────────────────
   handlers:
-    - name: restart nginx
-      service:
+
+    - name: reload nginx
+      ansible.builtin.service:
         name: nginx
-        state: restarted
+        state: reloaded
+
+    - name: restart tpp container
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        state: started
+        restart: true
+
+    - name: reload systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: enable tpp service
+      ansible.builtin.systemd:
+        name: docker-tpp-container
+        enabled: true
+        state: started
+
+  # ─────────────────────────────────────────────────────────
+  post_tasks:
+    - name: "POST | Print deployment summary"
+      ansible.builtin.debug:
+        msg:
+          - "========================================="
+          - " Tree Plantation Portal – DEPLOYED"
+          - "  Container : {{ container_name }}"
+          - "  Image     : {{ docker_image }}:{{ app_version }}"
+          - "  Host port : {{ host_port }}"
+          - "  HTTP      : http://{{ ansible_host }}/"
+          - "  Health    : http://{{ ansible_host }}:{{ host_port }}/actuator/health"
+          - "========================================="

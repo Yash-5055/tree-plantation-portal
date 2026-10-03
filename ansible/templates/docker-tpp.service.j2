@@ -1,0 +1,14 @@
+[Unit]
+Description=Tree Plantation Portal Docker Container
+After=docker.service
+Requires=docker.service
+
+[Service]
+Restart=always
+RestartSec=10s
+ExecStart=/usr/bin/docker start -a {{ container_name }}
+ExecStop=/usr/bin/docker stop -t 15 {{ container_name }}
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

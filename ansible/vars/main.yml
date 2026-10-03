@@ -1,0 +1,54 @@
+---
+# ============================================================
+#  Tree Plantation Portal – Ansible Variables
+#  File: ansible/vars/main.yml
+# ============================================================
+
+# ── Application ───────────────────────────────────────────
+app_name:       tree-plantation-portal
+app_user:       deploy
+app_group:      deploy
+app_dir:        /opt/tpp
+app_log_dir:    /var/log/tpp
+app_conf_dir:   /etc/tpp
+
+docker_image:   "yashlokare/tree-plantation-portal"
+app_version:    "latest"          # override at run-time: -e app_version=17
+container_name: tpp-container
+app_port:       8080              # internal container port
+host_port:      8081              # port exposed on the host
+
+# ── Nginx ─────────────────────────────────────────────────
+nginx_http_port:  80
+nginx_https_port: 443
+server_name:      "_"             # replace with FQDN in production
+
+# ── Database ──────────────────────────────────────────────
+db_engine:   "h2"                 # "h2" | "postgresql"
+
+# PostgreSQL settings (used only when db_engine == "postgresql")
+pg_host:     "localhost"
+pg_port:     5432
+pg_db:       "tpp_db"
+pg_user:     "tppuser"
+pg_password: "Ch@ngeMe_Str0ng!"   # REPLACE or use ansible-vault
+
+# ── System ────────────────────────────────────────────────
+required_packages:
+  - ca-certificates
+  - curl
+  - gnupg
+  - lsb-release
+  - git
+  - wget
+  - unzip
+  - ufw
+  - python3-pip
+  - python3-docker          # Python SDK needed by community.docker collection
+
+# JDK – needed on the host only if running Maven outside Docker
+java_package: openjdk-21-jdk
+
+# ── CI – Jenkins (optional, set to true to install on same node) ──
+install_jenkins: false
+jenkins_port:    8080
