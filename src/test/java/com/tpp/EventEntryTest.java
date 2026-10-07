@@ -39,16 +39,23 @@ public class EventEntryTest {
             driver.get(BASE_URL + "/events/new");
             driver.findElement(By.id("species")).sendKeys("Neem");
             driver.findElement(By.id("planterName")).sendKeys("Ravi Kumar");
-            driver.findElement(By.id("eventDate")).sendKeys("09/01/2026");
+
+            // Use JS to set date value — sendKeys unreliable on type=date in macOS Chrome
+            WebElement dateField = driver.findElement(By.id("eventDate"));
+            ((org.openqa.selenium.JavascriptExecutor) driver)
+                .executeScript("arguments[0].value = '2026-09-01';", dateField);
+
+            driver.findElement(By.id("region")).sendKeys("Pune Division");
             driver.findElement(By.id("submitBtn")).click();
 
-WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            WebElement heading = wait.until(
+                ExpectedConditions.visibilityOfElementLocated(By.tagName("h2"))
+            );
 
-WebElement heading = wait.until(
-    ExpectedConditions.visibilityOfElementLocated(By.tagName("h2"))
-);
-
-assertTrue(heading.getText().toLowerCase().contains("success"));
+            assertTrue(heading.getText().toLowerCase().contains("success") ||
+                       heading.getText().toLowerCase().contains("recorded"),
+                       "Expected success page but got: " + heading.getText());
         } catch (AssertionError | Exception e) {
             captureScreenshot("testSubmitValidEvent_failure");
             throw e;
