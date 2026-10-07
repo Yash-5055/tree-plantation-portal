@@ -1,0 +1,115 @@
+---
+# ============================================================
+#  Tree Plantation Portal – Docker-Container Target Playbook
+#  File: ansible/docker-target.yml
+#
+#  Runs against a local Ubuntu 22.04 Docker container.
+#  Uses community.docker.docker connection (docker exec, no SSH).
+#
+#  Pre-req: docker run -d --name ubuntu-target ubuntu:22.04 sleep infinity
+#  Run    : ansible-playbook -i inventory/docker-hosts.ini docker-target.yml
+# ============================================================
+
+- name: "TPP DOCKER-TARGET | Configure Ubuntu 22.04 container"
+  hosts: ubuntu_container
+  become: true
+  become_method: su          # containers don't have sudo by default
+  become_user: root
+  vars_files:
+    - vars/main.yml
+  vars:
+    ansible_become_password: ""
+
+  tasks:
+
+    # ── 0. Bootstrap Python (bare ubuntu image has none) ────
+    - name: "BOOTSTRAP | Install Python3 (required by Ansible)"
+      ansible.builtin.raw: |
+        apt-get update -qq && apt-get install -y -qq python3 sudo 2>/dev/null
+      changed_when: true
+
+    # ── 1. Verify OS ─────────────────────────────────────────
+    - name: "PRE | Gather facts"
+      ansible.builtin.setup:
+
+    - name: "PRE | Print OS info"
+      ansible.builtin.debug:
+        msg: "Target OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+
+    # ── 2. Install required packages ─────────────────────────
+    - name: "PKG | Update apt cache"
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: "PKG | Install system packages"
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - git
+          - wget
+          - unzip
+          - python3
+          - python3-pip
+        state: present
+
+    - name: "PKG | Install OpenJDK 21"
+      ansible.builtin.apt:
+        name: openjdk-21-jdk
+        state: present
+
+    # ── 3. Create service user ───────────────────────────────
+    - name: "USER | Create '{{ app_user }}' service user"
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        shell: /bin/bash
+        create_home: true
+        state: present
+
+    # ── 4. Create directory structure ────────────────────────
+    - name: "DIR | Create application directories"
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ item.owner | default(app_user) }}"
+        mode: "{{ item.mode | default('0755') }}"
+      loop:
+        - { path: "{{ app_dir }}" }
+        - { path: "{{ app_dir }}/conf" }
+        - { path: "{{ app_dir }}/data" }
+        - { path: "{{ app_log_dir }}", mode: '0750' }
+        - { path: "{{ app_conf_dir }}", owner: root, mode: '0755' }
+
+    # ── 5. Deploy application config ─────────────────────────
+    - name: "CFG | Deploy application.properties"
+      ansible.builtin.template:
+        src: templates/application.properties.j2
+        dest: "{{ app_conf_dir }}/application.properties"
+        owner: "{{ app_user }}"
+        mode: "0640"
+
+    # ── 6. Verify Java installed ─────────────────────────────
+    - name: "JAVA | Check Java version"
+      ansible.builtin.command: java -version
+      register: java_ver
+      changed_when: false
+
+    - name: "JAVA | Print Java version"
+      ansible.builtin.debug:
+        msg: "{{ java_ver.stderr }}"
+
+    # ── 7. Summary ───────────────────────────────────────────
+    - name: "POST | Deployment summary"
+      ansible.builtin.debug:
+        msg:
+          - "================================================"
+          - " UBUNTU 22.04 TARGET — CONFIGURED SUCCESSFULLY"
+          - "  OS       : {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "  Java     : OpenJDK 21 installed"
+          - "  App user : {{ app_user }}"
+          - "  App dir  : {{ app_dir }}"
+          - "  Conf dir : {{ app_conf_dir }}"
+          - "  Log dir  : {{ app_log_dir }}"
+          - "================================================"
