@@ -17,6 +17,7 @@
 # ══════════════════════════════════════════════════════════════
 - name: "PROVISION | Configure Ubuntu 22.04 target node"
   hosts: ubuntu_container
+  gather_facts: false
   become: true
   become_method: su
   become_user: root
@@ -179,6 +180,7 @@
 # ══════════════════════════════════════════════════════════════
 - name: "IDEMPOTENCY | Rerun provisioning — expect changed=0"
   hosts: ubuntu_container
+  gather_facts: false
   become: true
   become_method: su
   become_user: root
