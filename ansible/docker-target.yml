@@ -12,6 +12,7 @@
 
 - name: "TPP DOCKER-TARGET | Configure Ubuntu 22.04 container"
   hosts: ubuntu_container
+  gather_facts: false         # bare ubuntu image has no Python3 yet
   become: true
   become_method: su          # containers don't have sudo by default
   become_user: root
